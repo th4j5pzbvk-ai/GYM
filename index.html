@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gym Log Pro</title>
+<style>
+:root{--bg:#f6f3f0;--card:#fff;--ink:#24211f;--muted:#817a74;--line:#e7e0da;--accent:#6d5a4e;--soft:#eee7e1;--green:#4d775d;--red:#a34a42}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}.app{max-width:760px;margin:auto;padding:18px 14px 100px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}h1{font-size:29px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:3px}
+button{font:inherit;cursor:pointer;border:0}.primary{background:var(--accent);color:#fff;padding:11px 15px;border-radius:13px;font-weight:700}.secondary{background:var(--soft);color:var(--ink);padding:10px 13px;border-radius:12px;font-weight:700}
+nav{display:flex;gap:7px;overflow:auto;margin-bottom:15px}nav button{background:var(--card);border:1px solid var(--line);padding:10px 13px;border-radius:12px;white-space:nowrap}nav button.active{background:var(--ink);color:#fff}
+.view{display:none}.view.active{display:block}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.stat{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:14px}.stat span{font-size:12px;color:var(--muted)}.stat b{font-size:25px;display:block;margin-top:3px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:19px;padding:15px;margin:11px 0}.title{display:flex;justify-content:space-between;align-items:center;margin:18px 2px 8px}.title h2{font-size:18px;margin:0}.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}.meta{font-size:13px;color:var(--muted);margin-top:3px}.badge{font-size:11px;background:#edf3ee;color:var(--green);padding:6px 9px;border-radius:9px;font-weight:700}
+.form{display:grid;gap:10px}.two{display:grid;grid-template-columns:1fr 1fr;gap:9px}label{font-size:12px;color:var(--muted);display:block;margin:0 0 5px}input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:16px;outline:none}
+.actions{display:flex;gap:6px}.icon{background:var(--soft);padding:8px 10px;border-radius:10px}.danger{background:#fff0ee;color:var(--red)}.empty{text-align:center;color:var(--muted);padding:25px 8px}
+</style></head>
+<body><div class="app">
+<header><div><h1>🏋🏻‍♀️ Gym Log Pro</h1><div class="sub">سجلك • تطورك • أوزانك</div></div><button class="primary" onclick="go('add')">+ تسجيل</button></header>
+<nav><button class="active" onclick="go('home',this)">الرئيسية</button><button onclick="go('history',this)">السجل</button><button onclick="go('plan',this)">الجدول</button></nav>
+
+<section id="home" class="view active">
+<div class="grid"><div class="stat"><span>الجلسات</span><b id="sessions">0</b></div><div class="stat"><span>التمارين</span><b id="entries">0</b></div></div>
+<div class="title"><h2>آخر تمرين</h2></div><div class="card" id="latest"></div>
+</section>
+
+<section id="add" class="view"><div class="title"><h2 id="formTitle">تسجيل تمرين</h2></div><div class="card"><div class="form">
+<div><label>نوع اليوم</label><select id="day"><option>Upper — صدر + تراي</option><option>Upper — ظهر + باي</option><option>Lower Body</option><option>Pilates</option></select></div>
+<div><label>التاريخ</label><input id="date" type="date"></div>
+<div><label>التمرين</label><input id="exercise" placeholder="مثال: Squat"></div>
+<div class="two"><div><label>الجولات</label><input id="sets" type="number" value="3"></div><div><label>العدات</label><input id="reps" type="number" value="10"></div></div>
+<div class="two"><div><label>الوزن بالكيلو</label><input id="weight" type="number" step="0.5"></div><div><label>ملاحظة</label><input id="note"></div></div>
+<div class="two"><button class="secondary" onclick="go('home')">إلغاء</button><button class="primary" onclick="saveEntry()">حفظ</button></div>
+</div></div></section>
+
+<section id="history" class="view"><div class="title"><h2>السجل الكامل</h2></div><div id="historyList"></div></section>
+
+<section id="plan" class="view"><div class="title"><h2>جدولك الحالي</h2></div><div class="card">
+<div class="row"><div><b>Upper 1</b><div class="meta">صدر + ترايسبس + بطن</div></div></div>
+<div class="row"><div><b>Lower 1</b><div class="meta">Lower Body + بطن</div></div></div>
+<div class="row"><div><b>Upper 2</b><div class="meta">ظهر + بايسبس + بطن</div></div></div>
+<div class="row"><div><b>Lower 2</b><div class="meta">Lower Body + بطن + Leg Press + Kickback</div></div></div>
+<div class="row"><div><b>Pilates</b><div class="meta">جلسة إضافية عند الحاجة</div></div></div>
+</div></section>
+
+<script>
+const KEY='gymLogPro_full_v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'[]');
+let editId=null;
+const seedData = [
+{date:'2026-08-22',day:'Upper — ظهر + باي',exercise:'Lat Pulldown',sets:3,reps:20,weight:20,note:''},
+{date:'2026-08-22',day:'Upper — ظهر + باي',exercise:'Seated Cable Row',sets:3,reps:15,weight:15,note:''},
+{date:'2026-08-22',day:'Upper — ظهر + باي',exercise:'Single-Arm Dumbbell Row',sets:3,reps:7,weight:7,note:''},
+{date:'2026-08-22',day:'Upper — ظهر + باي',exercise:'Face Pull',sets:3,reps:7,weight:7.5,note:''},
+{date:'2026-08-22',day:'Upper — ظهر + باي',exercise:'Dumbbell Shoulder Press',sets:3,reps:5,weight:5,note:'لكل يد'},
+{date:'2026-08-22',day:'Upper — ظهر + باي',exercise:'Dumbbell Biceps Curl',sets:3,reps:4,weight:4,note:'لكل يد'},
+{date:'2026-08-22',day:'Upper — ظهر + باي',exercise:'Triceps Rope Pushdown',sets:3,reps:7.5,weight:7,note:''},
+{date:'2026-08-22',day:'Upper — ظهر + باي',exercise:'Sit-ups',sets:3,reps:15,weight:0,note:'وزن الجسم'},
+
+{date:'2026-08-23',day:'Upper — صدر + تراي',exercise:'Chest Press',sets:4,reps:15,weight:15,note:''},
+{date:'2026-08-23',day:'Upper — صدر + تراي',exercise:'Dumbbell Chest Press',sets:3,reps:5,weight:5,note:'لكل يد'},
+{date:'2026-08-23',day:'Upper — صدر + تراي',exercise:'Chest Fly',sets:3,reps:5,weight:5,note:'لكل يد'},
+{date:'2026-08-23',day:'Upper — صدر + تراي',exercise:'Triceps Rope Pushdown',sets:3,reps:7.5,weight:7.5,note:''},
+{date:'2026-08-23',day:'Upper — صدر + تراي',exercise:'Overhead Triceps Extension',sets:3,reps:8,weight:8,note:''},
+{date:'2026-08-23',day:'Upper — صدر + تراي',exercise:'Sit-ups',sets:3,reps:15,weight:5,note:''},
+{date:'2026-08-23',day:'Upper — صدر + تراي',exercise:'Plank',sets:2,reps:60,weight:0,note:'60 ثانية'},
+
+{date:'2026-08-24',day:'Lower Body',exercise:'Squat',sets:4,reps:10,weight:10,note:''},
+{date:'2026-08-24',day:'Lower Body',exercise:'RDL',sets:3,reps:5,weight:10,note:'5 كجم لكل يد'},
+{date:'2026-08-24',day:'Lower Body',exercise:'Hip Thrust',sets:3,reps:20,weight:20,note:''},
+{date:'2026-08-24',day:'Lower Body',exercise:'Leg Press',sets:3,reps:3,weight:40,note:'استبدال Walking Lunges'},
+{date:'2026-08-24',day:'Lower Body',exercise:'Crunch',sets:3,reps:15,weight:0,note:'وزن الجسم'},
+{date:'2026-08-24',day:'Lower Body',exercise:'Stair Climber',sets:1,reps:5,weight:0,note:'5 دقائق'},
+
+{date:'2026-08-27',day:'Lower Body',exercise:'Squat',sets:4,reps:12,weight:12,note:''},
+{date:'2026-08-27',day:'Lower Body',exercise:'RDL',sets:4,reps:12,weight:12,note:''},
+{date:'2026-08-27',day:'Lower Body',exercise:'Hip Thrust',sets:3,reps:10,weight:20,note:'Hold 12 sec بعد كل جولة'},
+{date:'2026-08-27',day:'Lower Body',exercise:'Leg Press',sets:3,reps:10,weight:20,note:'لكل رجل'},
+{date:'2026-08-27',day:'Lower Body',exercise:'Leg Curl',sets:3,reps:10,weight:20,note:''},
+{date:'2026-08-27',day:'Lower Body',exercise:'Kickback',sets:3,reps:15,weight:5,note:''},
+{date:'2026-08-27',day:'Lower Body',exercise:'Crunch',sets:3,reps:15,weight:0,note:'وزن الجسم'}
+];
+if(!data.length){ data=seedData.map((x,i)=>({...x,id:Date.now()+i})); localStorage.setItem(KEY,JSON.stringify(data)); }
+
+function go(id,el){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');render()}
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function saveEntry(){
+  if(!exercise.value.trim()) return alert('اكتبي اسم التمرين');
+  const obj={id:editId||Date.now(),date:date.value||new Date().toISOString().slice(0,10),day:day.value,exercise:exercise.value.trim(),sets:+sets.value||0,reps:+reps.value||0,weight:+weight.value||0,note:note.value.trim()};
+  if(editId)data=data.map(x=>x.id===editId?obj:x);else data.push(obj);
+  save();editId=null;exercise.value='';note.value='';go('history');
+}
+function edit(id){const x=data.find(a=>a.id===id);if(!x)return;editId=id;day.value=x.day;date.value=x.date;exercise.value=x.exercise;sets.value=x.sets;reps.value=x.reps;weight.value=x.weight;note.value=x.note;formTitle.textContent='تعديل تمرين';go('add')}
+function del(id){if(confirm('حذف هذا التمرين؟')){data=data.filter(x=>x.id!==id);save();render()}}
+function render(){
+ entries.textContent=data.length;
+ sessions.textContent=new Set(data.map(x=>x.date+'|'+x.day)).size;
+ const last=data[data.length-1];
+ latest.innerHTML=last?`<b>${last.exercise}</b><div class="meta">${last.date} • ${last.day} • ${last.sets} × ${last.reps} • ${last.weight?last.weight+' كجم':'وزن الجسم'} ${last.note||''}</div>`:'<div class="empty">لا يوجد سجل</div>';
+ historyList.innerHTML=data.slice().reverse().map(x=>`<div class="card"><div class="row"><div><b>${x.exercise}</b><div class="meta">${x.date} • ${x.day}</div></div><div class="actions"><button class="icon" onclick="edit(${x.id})">✏️</button><button class="icon danger" onclick="del(${x.id})">🗑️</button></div></div><div class="meta">${x.sets} × ${x.reps} • ${x.weight?x.weight+' كجم':'وزن الجسم'}${x.note?' • '+x.note:''}</div></div>`).join('');
+}
+date.value=new Date().toISOString().slice(0,10);render();
+</script></div></body></html>
